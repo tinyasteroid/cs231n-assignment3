@@ -36,6 +36,13 @@ class PositionalEncoding(nn.Module):
         # this is what the autograder is expecting. For reference, our solution is #
         # less than 5 lines of code.                                               #
         ############################################################################
+        # pe 相当于维护一个位置编码表，每一行表示一个位置，每一列表示一个维度的编码值
+        position = torch.arange(max_len, dtype = torch.float).unsqueeze(1) # (max_len, 1)
+        frequency = 10000 ** (-torch.arange(0, embed_dim, 2) / embed_dim)
+        angles = position * frequency
+        # 填表
+        pe[0, :, 0::2] = torch.sin(angles)
+        pe[0, :, 1::2] = torch.cos(angles)
 
         ############################################################################
         #                             END OF YOUR CODE                             #
@@ -64,7 +71,7 @@ class PositionalEncoding(nn.Module):
         # appropriate ones to the input sequence. Don't forget to apply dropout    #
         # afterward. This should only take a few lines of code.                    #
         ############################################################################
-
+        output  = self.dropout(x + self.pe[:, :S, :]) # 只使用前 S 个位置编码
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################
@@ -155,7 +162,38 @@ class MultiHeadAttention(nn.Module):
         #     prevent a value from influencing output. Specifically, the PyTorch   #
         #     function masked_fill may come in handy.                              #
         ############################################################################
+        H = self.n_head
+        D = self.head_dim
+        scale = math.sqrt(D) # d_k
 
+        # 1. 将输入投影为 Q，K，V 矩阵
+        Q = self.query(query)  # (N, S, E)
+        K = self.key(key)      # (N, T, E)
+        V = self.value(value)  # (N, T, E)
+
+        # 2. 拆分多头，并把每个头的序列矩阵放到最后两个维度
+        Q = Q.reshape(N, S, H, D).transpose(1, 2) # (N, H, S, D)
+        K = K.reshape(N, T, H, D).transpose(1, 2) # (N, H, T, D)
+        V = V.reshape(N, T, H, D).transpose(1, 2) # (N, H, T, D)
+
+        # 3. 计算注意力分数
+        attn_scores = torch.matmul(Q, K.transpose(-2, -1)) / scale # (N, H, S, T)
+
+        # 4. mask
+        if attn_mask is not None:
+            scores = attn_scores.masked_fill(attn_mask == 0, float('-inf'))
+        else:
+            scores = attn_scores
+
+        # 5. softmax
+        weights = self.attn_drop(F.softmax(scores, dim=-1)) # (N, H, S, T)
+
+        # 6. 加权求和
+        out = torch.matmul(weights, V) # (N, H, S, D)
+
+        # 7. 合并多头
+        out = out.transpose(1, 2).reshape(N, S, E)
+        output = self.proj(out) # (N, S, E)
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################
@@ -252,6 +290,19 @@ class TransformerDecoderLayer(nn.Module):
         # memory, and (2) the feedforward block. Each block should follow the      #
         # same structure as self-attention implemented just above.                 #
         ############################################################################
+        #* cross-attention block
+        shortcut = tgt
+        tgt = self.cross_attn(query=tgt, key=memory, value=memory)
+        tgt = self.dropout_cross(tgt)
+        tgt = tgt + shortcut
+        tgt = self.norm_cross(tgt)
+
+        #* feedforward block
+        shortcut = tgt
+        tgt = self.ffn(tgt)
+        tgt = self.dropout_ffn(tgt)
+        tgt = tgt + shortcut
+        tgt = self.norm_ffn(tgt)
 
         ############################################################################
         #                             END OF YOUR CODE                             #

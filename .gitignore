@@ -21,3 +21,6 @@ runs/
 wandb/
 a3_code_submission.zip
 a3_inline_submission.pdf
+
+# Local reference notebooks from mantasu/cs231n
+/Reference/
