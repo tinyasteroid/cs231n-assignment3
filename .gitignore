@@ -1,0 +1,23 @@
+# Local environment and caches
+.DS_Store
+__MACOSX/
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+.venv/
+venv/
+.env
+
+# Downloaded datasets; retain official download scripts
+cs231n/datasets/*
+!cs231n/datasets/*.sh
+
+# Generated model weights and experiment artifacts
+*.pt
+*.pth
+*.ckpt
+checkpoints/
+runs/
+wandb/
+a3_code_submission.zip
+a3_inline_submission.pdf
