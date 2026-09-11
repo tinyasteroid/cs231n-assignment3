@@ -362,14 +362,23 @@ class PatchEmbedding(nn.Module):
         # step. Once the patches are flattened, embed them into latent vectors     #
         # using the projection layer.                                              #
         ############################################################################
+        P = self.patch_size
 
+        # 1. 将图像划分为不重叠的 patch
+        num_patches_height = H // P
+        num_patches_width = W // P
+
+        # x: (N, C, H, W) -> (N, C, num_patches_height, height, num_patches_width, width)
+        x = x.unfold(2, P, P).unfold(3, P, P)
+        x = x.permute(0, 2, 3, 1, 4, 5)  # (N, num_patches_height, num_patches_width, C, P, P)
+        x = x.reshape(N, num_patches_height * num_patches_width, -1)  # (N, num_patches, patch_dim)
+
+        # 2. 将每个 patch 投影到嵌入空间
+        out = self.proj(x) # (N, num_patches, embed_dim)
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################
         return out
-
-
-
 
 class TransformerEncoderLayer(nn.Module):
     """
@@ -410,7 +419,24 @@ class TransformerEncoderLayer(nn.Module):
         # TODO: Implement the encoder layer by applying self-attention followed    #
         # by a feedforward block. This code will be very similar to decoder layer. #
         ############################################################################
+        def mlp(x):
+            shortcut = x
+            x = self.ffn(x)
+            x = self.dropout_ffn(x)
+            x = x + shortcut
+            x = self.norm_ffn(x)
+            return x
 
+        def self_attention(x, mask):
+            shortcut = x
+            x = self.self_attn(query=x, key=x, value=x, attn_mask=mask)
+            x = self.dropout_self(x)
+            x = x + shortcut
+            x = self.norm_self(x)
+            return x
+
+        src = self_attention(src, src_mask)
+        src = mlp(src)
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################
