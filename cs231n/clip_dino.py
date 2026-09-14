@@ -319,7 +319,7 @@ class DINOSegmentation:
             loss.backward()
             self.optimizer.step()
 
-            for (i + 1) % 50 == 0 or i == 0:
+            if (i + 1) % 50 == 0 or i == 0:
                 print(f"Iteration {i + 1}/{num_iters}, Loss: {loss.item():.4f}")
         ############################################################################
         #                             END OF YOUR CODE                             #
