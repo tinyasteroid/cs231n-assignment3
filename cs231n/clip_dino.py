@@ -69,7 +69,27 @@ def clip_zero_shot_classifier(clip_model, clip_preprocess, images,
     ############################################################################
     # TODO: Find the class labels for images.                                  #
     ############################################################################
+    #* 1. image preprocessing & embedding
+    # 1.1 把 image 转成 tensor 并做预处理
+    processed_images = [clip_preprocess(Image.fromarray(img)).unsqueeze(0) for img in images]
 
+    # 1.2 把 B 个 (3, H', W') 的图像 tensor 堆叠成 (B, 3, H', W') 的 tensor
+    image_input = torch.stack(processed_images).to(device)
+
+    # 1.3 encoding
+    #! use encode_image instead of clip.forward()
+    image_features = clip_model.encode_image(image_input)
+
+    #* 2. text tokenize & embedding
+    text_tokens = clip.tokenize(class_texts).to(device)
+    text_features = clip_model.encode_text(text_tokens)
+
+    #* 3. compute similarity
+    similarity = get_similarity_no_loop(text_features, image_features) # (N, M)
+    class_indices = similarity.argmax(dim=0).tolist() # (M,) 对每一列即每一张图像找最大值
+
+    # 映射回 idx 对应的 class_texts
+    pred_classes = [class_texts[idx] for idx in class_indices]
     ############################################################################
     #                             END OF YOUR CODE                             #
     ############################################################################
