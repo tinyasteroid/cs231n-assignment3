@@ -149,12 +149,11 @@ class CLIPImageRetriever:
         ############################################################################
         # TODO: Retrieve the indices of top-k images.                              #
         ############################################################################
-        clip = self.clip_model
         device = self.device
         image_norm = self.image_norm_feature # (M, D)
 
         query_tokens = clip.tokenize([query]).to(device)
-        query_feature = clip.encode_text(query_tokens) # (1, D) 
+        query_feature = self.clip_model.encode_text(query_tokens) # (1, D) 
         # 对文本查询特征进行归一化
         query_norm = torch.linalg.vector_norm(query_feature, dim=1, keepdim=True)
         query_norm_feature = query_feature / query_norm # (1, D)
