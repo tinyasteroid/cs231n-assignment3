@@ -282,7 +282,15 @@ class DINOSegmentation:
         # function to train classify each DINO feature vector into a seg. class.   #
         # It can be a linear layer or two layer neural network.                    #
         ############################################################################
+        self.model = nn.Sequential(
+            nn.Linear(inp_dim, 192),
+            nn.ReLU(),
+            nn.Linear(192, num_classes)
+        ).to(device)
 
+        self.device = device
+        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=1e-4, weight_decay=0.01)
+        self.loss_fn = nn.CrossEntropyLoss()
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################
@@ -299,7 +307,20 @@ class DINOSegmentation:
         ############################################################################
         # TODO: Train your model for `num_iters` steps.                            #
         ############################################################################
+        # switch to train mode
+        self.model.train()
+        X_train = X_train.to(self.device)
+        Y_train = Y_train.to(self.device)
 
+        for i in range(num_iters):
+            self.optimizer.zero_grad()
+            outputs = self.model(X_train)
+            loss = self.loss_fn(outputs, Y_train)
+            loss.backward()
+            self.optimizer.step()
+
+            for (i + 1) % 50 == 0 or i == 0:
+                print(f"Iteration {i + 1}/{num_iters}, Loss: {loss.item():.4f}")
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################
@@ -319,7 +340,12 @@ class DINOSegmentation:
         ############################################################################
         # TODO: Train your model for `num_iters` steps.                            #
         ############################################################################
+        self.model.eval()
+        X_test = X_test.to(self.device)
 
+        # make predictions
+        outputs = self.model(X_test) # (N, num_classes) 
+        pred_classes = torch.argmax(outputs, dim=1) # (N,)
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################
