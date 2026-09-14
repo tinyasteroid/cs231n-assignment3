@@ -71,7 +71,8 @@ def clip_zero_shot_classifier(clip_model, clip_preprocess, images,
     ############################################################################
     #* 1. image preprocessing & embedding
     # 1.1 把 image 转成 tensor 并做预处理
-    processed_images = [clip_preprocess(Image.fromarray(img)).unsqueeze(0) for img in images]
+    #! (batch, 3, H', W')
+    processed_images = [clip_preprocess(Image.fromarray(img)) for img in images]
 
     # 1.2 把 B 个 (3, H', W') 的图像 tensor 堆叠成 (B, 3, H', W') 的 tensor
     image_input = torch.stack(processed_images).to(device)
@@ -117,7 +118,15 @@ class CLIPImageRetriever:
         # computation for each text query. You may end up NOT using the above      #
         # similarity function for most compute-optimal implementation.#
         ############################################################################
+        #* only do once!
+        self.clip_model = clip_model
+        self.device = device
 
+        processed_images = [clip_preprocess(Image.fromarray(img)) for img in images]
+        image_input = torch.stack(processed_images, dim=0).to(device)
+        image_feature = clip_model.encode_image(image_input)
+        image_norm = torch.linalg.vector_norm(image_feature, dim=1, keepdim=True)
+        self.image_norm_feature = image_feature / image_norm # (M, D)
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################
@@ -140,6 +149,23 @@ class CLIPImageRetriever:
         ############################################################################
         # TODO: Retrieve the indices of top-k images.                              #
         ############################################################################
+        clip = self.clip_model
+        device = self.device
+        image_norm = self.image_norm_feature # (M, D)
+
+        query_tokens = clip.tokenize([query]).to(device)
+        query_feature = clip.encode_text(query_tokens) # (1, D) 
+        # 对文本查询特征进行归一化
+        query_norm = torch.linalg.vector_norm(query_feature, dim=1, keepdim=True)
+        query_norm_feature = query_feature / query_norm # (1, D)
+
+        # 和缓存的所有图片特征计算相似度
+        similarities = query_norm_feature @ image_norm.T # (1, M)
+        similarities = similarities.squeeze(0) # (M,)
+
+        # 获取相似度最高的k个图片的索引
+        top_k_similarities, top_k_indices = torch.topk(similarities, k=k, largest=True, sorted=True) # (K, )
+        top_indices = top_k_indices.tolist()
 
         ############################################################################
         #                             END OF YOUR CODE                             #
