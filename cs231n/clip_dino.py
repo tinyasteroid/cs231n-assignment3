@@ -26,7 +26,14 @@ def get_similarity_no_loop(text_features, image_features):
     ############################################################################
     # TODO: Compute the cosine similarity. Do NOT use for loops.               #
     ############################################################################
+    # 1. normalize the text and image features to unit vectors
+    text_norm = torch.linalg.vector_norm(
+        text_features, dim=1, keepdim=True)
+    
+    image_norm = torch.linalg.vector_norm(
+        image_features, dim=1, keepdim=True)
 
+    similarity = (text_features @ image_features.T) / (text_norm * image_norm.T)
     ############################################################################
     #                             END OF YOUR CODE                             #
     ############################################################################
